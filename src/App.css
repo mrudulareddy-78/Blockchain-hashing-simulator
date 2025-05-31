@@ -1,0 +1,246 @@
+/* ======================
+   Base Styles
+   ====================== */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #111827; /* Dark background */
+  color: #ffffff; /* White text */
+}
+
+h1, h2, h3 {
+  margin: 0;
+}
+
+/* ======================
+   Layout Utilities
+   ====================== */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-row {
+  flex-direction: row;
+}
+
+.grid {
+  display: grid;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-end {
+  align-items: flex-end;
+}
+
+/* ======================
+   Spacing Utilities
+   ====================== */
+.p-6 {
+  padding: 1.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.space-y-4 > :not(:last-child) {
+  margin-bottom: 1rem;
+}
+
+.space-y-8 > :not(:last-child) {
+  margin-bottom: 2rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.gap-3 {
+  gap: 0.75rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+/* ======================
+   Container Styles
+   ====================== */
+.min-h-screen {
+  min-height: 100vh;
+}
+
+.max-w-7xl {
+  max-width: 1280px;
+}
+
+.max-h-96 {
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+/* ======================
+   Component Styles
+   ====================== */
+/* Cards */
+.bg-gray-800 {
+  background-color: #1f2937;
+}
+
+.bg-gray-700 {
+  background-color: #374151;
+}
+
+.bg-gray-600 {
+  background-color: #4b5563;
+}
+
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.border {
+  border-width: 1px;
+}
+
+.border-gray-600 {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.border-blue-500 {
+  border-color: #3b82f6;
+}
+
+.transition-colors {
+  transition: background-color 0.3s;
+}
+
+/* Form Elements */
+input,
+textarea,
+select {
+  font-size: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: #374151;
+  color: #ffffff;
+  transition: border 0.3s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border: 1px solid #3b82f6;
+}
+
+/* Buttons */
+button {
+  transition: background-color 0.3s ease;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+/* ======================
+   Typography
+   ====================== */
+.text-4xl {
+  font-size: 2.25rem;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-mono {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.break-all {
+  word-break: break-all;
+}
+
+/* Text Colors */
+.text-gray-300 {
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.text-gray-400 {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.text-blue-400 {
+  color: #3b82f6;
+}
+
+.text-purple-400 {
+  color: #9333ea;
+}
+
+.text-green-400 {
+  color: #22c55e;
+}
+
+.text-yellow-400 {
+  color: #fbbf24;
+}
+
+.text-red-400 {
+  color: #ef4444;
+}
+
+/* ======================
+   Interactive States
+   ====================== */
+.hover\:bg-gray-600:hover {
+  background-color: #4b5563;
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: #2563eb;
+}
+
+.hover\:bg-yellow-700:hover {
+  background-color: #f59e0b;
+}
+
+.hover\:bg-red-700:hover {
+  background-color: #dc2626;
+}
+
+/* ======================
+   Animations
+   ====================== */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
