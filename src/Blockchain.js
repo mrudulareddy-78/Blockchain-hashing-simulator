@@ -136,6 +136,7 @@ class Blockchain {
     }
     return true;
   }
+  
 
   getBalance(address) {
     let balance = 0;
