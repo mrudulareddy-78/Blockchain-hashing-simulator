@@ -184,7 +184,6 @@ class Blockchain {
     this.chain = [this.createGenesisBlock()];
     this.difficulty = 2;
     this.pendingTransactions = [];
-    this.miningReward = 10;
     this.addresses = this.generateAddresses();
     this.miningTimes = [];
     this.difficultyLevels = [];
@@ -211,9 +210,7 @@ class Blockchain {
   }
 
    minePendingTransactions(miningRewardAddress) {
-    const rewardTransaction = new Transaction(null, miningRewardAddress, this.miningReward);
-    this.pendingTransactions.push(rewardTransaction);
-
+    
     const block = new Block(Date.now(), this.pendingTransactions, this.getLatestBlock().hash);
     block.index = this.chain.length;
     
@@ -230,28 +227,35 @@ class Blockchain {
   }
 
   addTransaction(sender, receiver, amount) {
-    if (sender !== 'network' && this.getBalance(sender) < amount) {
+  // Validate sender has enough balance (unless it's the network)
+  if (sender !== 'network') {
+    const senderBalance = this.getBalance(sender);
+    if (senderBalance < amount) {
       throw new Error('Insufficient balance');
     }
-    this.pendingTransactions.push(new Transaction(sender, receiver, amount));
   }
+  
+  // Create and add the transaction
+  const transaction = new Transaction(sender, receiver, amount);
+  this.pendingTransactions.push(transaction);
+}
 
   getBalance(address) {
-    let balance = 0;
+  let balance = 0;
 
-    for (const block of this.chain) {
-      for (const trans of block.transactions) {
-        if (trans.sender === address) {
-          balance -= trans.amount;
-        }
-        if (trans.receiver === address) {
-          balance += trans.amount;
-        }
+  for (const block of this.chain) {
+    for (const trans of block.transactions) {
+      if (trans.sender === address) {
+        balance -= trans.amount;
+      }
+      if (trans.receiver === address) {
+        balance += trans.amount;
       }
     }
-
-    return balance;
   }
+
+  return balance;
+}
 
   setDifficulty(newDifficulty) {
     if (newDifficulty >= 1 && newDifficulty <= 4) {
@@ -546,19 +550,21 @@ function App() {
   }
 
   const handleAddTransaction = () => {
-    try {
-      if (!sender || !receiver) throw new Error('Please select sender and receiver');
-      if (amount <= 0) throw new Error('Amount must be positive');
-      if (sender === receiver) throw new Error('Sender and receiver cannot be the same');
+  try {
+    if (!sender || !receiver) throw new Error('Please select sender and receiver');
+    if (amount <= 0) throw new Error('Amount must be positive');
+    if (sender === receiver) throw new Error('Sender and receiver cannot be the same');
 
-      blockchain.addTransaction(sender, receiver, parseFloat(amount));
-      forceUpdate(n => n + 1);
-      setStatus({ message: `Added transaction: ${sender.substring(0, 8)}... → ${receiver.substring(0, 8)}... (${amount} coins)`, severity: 'success' });
-    } catch (error) {
-      setStatus({ message: error.message, severity: 'error' });
-    }
-  };
-
+    blockchain.addTransaction(sender, receiver, parseFloat(amount));
+    forceUpdate(n => n + 1);
+    setStatus({ 
+      message: `Added transaction: ${sender.substring(0, 8)}... → ${receiver.substring(0, 8)}... (${amount} coins)`, 
+      severity: 'success' 
+    });
+  } catch (error) {
+    setStatus({ message: error.message, severity: 'error' });
+  }
+};
   const handleMineBlock = () => {
     try {
       if (!miner) throw new Error('Please select miner address');
