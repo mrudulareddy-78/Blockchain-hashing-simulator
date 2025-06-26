@@ -140,21 +140,25 @@ class Block {
   }
 
   calculateMerkleRoot() {
-    if (this.transactions.length === 0) return sha256('');
-    if (this.transactions.length === 1) return sha256(JSON.stringify(this.transactions[0]));
-    
-    let hashes = this.transactions.map(tx => sha256(JSON.stringify(tx)));
-    while (hashes.length > 1) {
-      const newHashes = [];
-      for (let i = 0; i < hashes.length; i += 2) {
-        const left = hashes[i];
-        const right = hashes[i + 1] || hashes[i];
-        newHashes.push(sha256(left + right));
-      }
-      hashes = newHashes;
+  if (this.transactions.length === 0) return sha256('');
+  if (this.transactions.length === 1) return sha256(JSON.stringify(this.transactions[0]));
+
+  let hashes = this.transactions.map(tx => sha256(JSON.stringify(tx)));
+  this.merkleTree = { leaves: [...hashes], levels: [] }; // Store leaves
+
+  while (hashes.length > 1) {
+    const newHashes = [];
+    for (let i = 0; i < hashes.length; i += 2) {
+      const left = hashes[i];
+      const right = hashes[i + 1] || hashes[i];
+      const combinedHash = sha256(left + right);
+      newHashes.push(combinedHash);
+      this.merkleTree.levels.push({ left, right, hash: combinedHash }); // Store intermediate
     }
-    return hashes[0];
+    hashes = newHashes;
   }
+  return hashes[0];
+}
 
   mineBlock(difficulty) {
     const target = Array(difficulty + 1).join('0');
@@ -1264,192 +1268,306 @@ function App() {
             <div><strong>Hash:</strong> {showFullHashes ? block.hash : `${block.hash.substring(0, 20)}...`}</div>
             <div><strong>Nonce:</strong> {block.nonce}</div>
             <div><strong>Transactions:</strong> {block.transactions.length}</div>
+            {expandedBlock === block.index && block.transactions.length > 1 && (
+  <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+    <h4 style={{ margin: '0 0 0.5rem 0', color: '#4a5568' }}>
+      Intermediate Hashes
+      <button 
+        onClick={() => setShowFullHashes(!showFullHashes)}
+        style={{
+          marginLeft: '1rem',
+          padding: '0.25rem 0.5rem',
+          background: showFullHashes ? '#ef4444' : '#10b981',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          fontSize: '0.8rem',
+          cursor: 'pointer'
+        }}
+      >
+        {showFullHashes ? 'Hide Full Hashes' : 'Show Full Hashes'}
+      </button>
+    </h4>
+    {block.merkleTree?.levels?.map((level, idx) => (
+      <div key={idx} style={{ marginBottom: '0.5rem' }}>
+        <div>
+          <strong>Level {idx + 1}:</strong> {showFullHashes ? level.hash : `${level.hash.substring(0, 16)}...`}
+        </div>
+        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+          (Left: {showFullHashes ? level.left : `${level.left.substring(0, 8)}...`}, 
+          Right: {showFullHashes ? level.right : `${level.right.substring(0, 8)}...`})
+        </div>
+      </div>
+    ))}
+  </div>
+)}
             
             {/* Enhanced Merkle Tree Display */}
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                <h4 style={{ margin: 0, color: '#4a5568' }}>Merkle Tree Structure</h4>
-                <button 
-                  onClick={() => setExpandedBlock(expandedBlock === block.index ? null : block.index)}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    backgroundColor: expandedBlock === block.index ? '#e5e7eb' : '#f3f4f6',
-                    color: '#4b5563',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.7rem'
-                  }}
-                >
-                  {expandedBlock === block.index ? 'Collapse' : 'Expand'}
-                </button>
-              </div>
-              
-              <div style={{ 
-                backgroundColor: 'white', 
-                padding: '1rem', 
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb'
-              }}>
-                <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+<div style={{ marginTop: '1rem' }}>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+    <h4 style={{ margin: 0, color: '#4a5568' }}>Merkle Tree</h4>
+    <button 
+      onClick={() => setExpandedBlock(expandedBlock === block.index ? null : block.index)}
+      style={{
+        padding: '0.25rem 0.75rem',
+        backgroundColor: expandedBlock === block.index ? '#e5e7eb' : '#f3f4f6',
+        color: '#4b5563',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '0.8rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.25rem'
+      }}
+    >
+      {expandedBlock === block.index ? (
+        <>
+          <span>▲</span> Collapse
+        </>
+      ) : (
+        <>
+          <span>▼</span> Expand
+        </>
+      )}
+    </button>
+  </div>
+  
+  <div style={{ 
+    backgroundColor: 'white', 
+    padding: '1.5rem', 
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+  }}>
+    {/* Root Node */}
+    <div style={{ 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      marginBottom: expandedBlock === block.index ? '1rem' : '0'
+    }}>
+      <div style={{ 
+        padding: '0.75rem 1.25rem',
+        backgroundColor: '#8b5cf6',
+        color: 'white',
+        borderRadius: '8px',
+        fontWeight: 'bold',
+        fontSize: '0.85rem',
+        boxShadow: '0 2px 4px rgba(139, 92, 246, 0.2)'
+      }}>
+        Merkle Root
+      </div>
+      <div style={{ 
+        marginTop: '0.5rem',
+        padding: '0.5rem',
+        backgroundColor: '#f3f4f6',
+        borderRadius: '6px',
+        fontSize: '0.75rem',
+        wordBreak: 'break-all',
+        textAlign: 'center'
+      }}>
+        {showFullHashes ? block.merkleRoot : `${block.merkleRoot.substring(0, 12)}...`}
+      </div>
+    </div>
+
+    {expandedBlock === block.index && block.transactions.length > 0 && (
+      <div style={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+        marginTop: '1rem'
+      }}>
+        {/* Intermediate Nodes */}
+        {block.transactions.length > 1 && (
+          <>
+            <div style={{ fontSize: '1.25rem', color: '#9ca3af' }}>↓</div>
+            
+            <div style={{ 
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+              justifyContent: 'center'
+            }}>
+              {Array(Math.ceil(block.transactions.length / 2)).fill(0).map((_, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
+                }}>
                   <div style={{ 
-                    padding: '0.5rem', 
-                    backgroundColor: '#8b5cf6', 
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#a78bfa',
                     color: 'white',
-                    borderRadius: '4px',
-                    display: 'inline-block',
-                    fontSize: '0.8rem'
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: '500'
                   }}>
-                    Root: {showFullHashes ? block.merkleRoot : `${block.merkleRoot.substring(0, 12)}...`}
+                    Intermediate Hash {idx+1}
                   </div>
                 </div>
-                
-                {block.transactions.length > 0 && (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
-                    {/* Transaction level */}
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                      {block.transactions.map((tx, idx) => (
-                        <div key={idx} style={{
-                          padding: '0.25rem 0.5rem',
-                          backgroundColor: '#e9d5ff',
-                          borderRadius: '4px',
-                          fontSize: '0.7rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          ':hover': {
-                            transform: 'scale(1.05)'
-                          }
-                        }}
-                        onClick={() => setSelectedTx(selectedTx === tx.hash ? null : tx.hash)}
-                        >
-                          TX{idx}
-                          {selectedTx === tx.hash && (
-                            <div style={{ 
-                              position: 'absolute', 
-                              backgroundColor: 'white',
-                              padding: '0.5rem',
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '4px',
-                              marginTop: '0.5rem',
-                              zIndex: 10,
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                            }}>
-                              <div>Hash: {tx.hash}</div>
-                              <div>From: {tx.sender}</div>
-                              <div>To: {tx.receiver}</div>
-                              <div>Amount: {tx.amount}</div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {expandedBlock === block.index && (
-                      <>
-                        {/* Hash arrows */}
-                        <div style={{ fontSize: '1rem' }}>↓</div>
-                        
-                        {/* Intermediate level (simplified) */}
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          {Array(Math.ceil(block.transactions.length / 2)).fill(0).map((_, idx) => (
-                            <div key={idx} style={{
-                              padding: '0.25rem 0.5rem',
-                              backgroundColor: '#d8b4fe',
-                              borderRadius: '4px',
-                              fontSize: '0.7rem'
-                            }}>
-                              Hash {idx+1}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Final arrow */}
-                        {block.transactions.length > 1 && (
-                          <>
-                            <div style={{ fontSize: '1rem' }}>↓</div>
-                            <div style={{
-                              padding: '0.5rem',
-                              backgroundColor: '#c084fc',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem'
-                            }}>
-                              Merkle Root: {showFullHashes ? block.merkleRoot : `${block.merkleRoot.substring(0, 12)}...`}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-                
-                {block.transactions.length === 0 && (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    color: '#6b7280',
-                    fontStyle: 'italic'
-                  }}>
-                    No transactions in this block
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
-            
-            {/* Transaction Details */}
-            <div style={{ marginTop: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', color: '#4a5568' }}>Transactions</h4>
-              {block.transactions.length === 0 ? (
-                <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No transactions</p>
-              ) : (
+          </>
+        )}
+
+        {/* Transaction Leaves */}
+        <div style={{ fontSize: '1.25rem', color: '#9ca3af' }}>↓</div>
+        
+        <div style={{ 
+          display: 'flex',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+          justifyContent: 'center'
+        }}>
+          {block.transactions.map((tx, idx) => (
+            <div 
+              key={idx} 
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative'
+              }}
+            >
+              <div 
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#c4b5fd',
+                  color: 'white',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  ':hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }
+                }}
+                onClick={() => setSelectedTx(selectedTx === tx.hash ? null : tx.hash)}
+              >
+                Transaction {idx+1}
+              </div>
+              
+              {selectedTx === tx.hash && (
                 <div style={{ 
-                  maxHeight: '200px', 
-                  overflowY: 'auto',
-                  border: '1px solid #e5e7eb',
+                  position: 'absolute',
+                  top: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '200px',
+                  marginTop: '0.5rem',
+                  padding: '0.75rem',
+                  backgroundColor: 'white',
                   borderRadius: '8px',
-                  padding: '0.5rem'
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  zIndex: 10,
+                  fontSize: '0.7rem'
                 }}>
-                  {block.transactions.map((tx, idx) => (
-                    <div key={idx} style={{ 
-                      padding: '0.5rem',
-                      borderBottom: idx < block.transactions.length - 1 ? '1px solid #e5e7eb' : 'none',
-                      cursor: 'pointer',
-                      ':hover': {
-                        backgroundColor: '#f3f4f6'
-                      }
-                    }}
-                    onClick={() => setSelectedTx(selectedTx === tx.hash ? null : tx.hash)}
-                    >
-                      <div>
-                        <strong>From:</strong> {showFullHashes ? tx.sender : `${tx.sender?.substring(0, 10)}...`}
-                      </div>
-                      <div>
-                        <strong>To:</strong> {showFullHashes ? tx.receiver : `${tx.receiver?.substring(0, 10)}...`}
-                      </div>
-                      <div>
-                        <strong>Amount:</strong> {tx.amount} coins
-                      </div>
-                      {selectedTx === tx.hash && (
-                        <div style={{ 
-                          marginTop: '0.5rem',
-                          padding: '0.5rem',
-                          backgroundColor: '#f9fafb',
-                          borderRadius: '4px',
-                          fontSize: '0.8rem',
-                          wordBreak: 'break-all'
-                        }}>
-                          <div><strong>Transaction Hash:</strong> {tx.hash}</div>
-                          <div><strong>Timestamp:</strong> {new Date(tx.timestamp).toLocaleString()}</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  <div style={{ marginBottom: '0.25rem' }}>
+                    <strong>From:</strong> {tx.sender?.substring(0, 12)}...
+                  </div>
+                  <div style={{ marginBottom: '0.25rem' }}>
+                    <strong>To:</strong> {tx.receiver?.substring(0, 12)}...
+                  </div>
+                  <div style={{ marginBottom: '0.25rem' }}>
+                    <strong>Amount:</strong> {tx.amount} coins
+                  </div>
+                  <div>
+                    <strong>Hash:</strong> {tx.hash.substring(0, 12)}...
+                  </div>
                 </div>
               )}
             </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {block.transactions.length === 0 && (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '1rem',
+        color: '#6b7280',
+        fontStyle: 'italic'
+      }}>
+        No transactions in this block
+      </div>
+    )}
+  </div>
+</div>
+
+{/* Transaction Details Section */}
+<div style={{ marginTop: '1.5rem' }}>
+  <h4 style={{ margin: '0 0 0.75rem 0', color: '#4a5568' }}>Transaction Details</h4>
+  {block.transactions.length === 0 ? (
+    <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No transactions to display</p>
+  ) : (
+    <div style={{ 
+      maxHeight: '300px', 
+      overflowY: 'auto',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '0.75rem',
+      backgroundColor: '#f9fafb'
+    }}>
+      {block.transactions.map((tx, idx) => (
+        <div 
+          key={idx} 
+          style={{ 
+            padding: '0.75rem',
+            borderBottom: idx < block.transactions.length - 1 ? '1px solid #e5e7eb' : 'none',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s',
+            ':hover': {
+              backgroundColor: '#f3f4f6'
+            }
+          }}
+          onClick={() => setSelectedTx(selectedTx === tx.hash ? null : tx.hash)}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                <strong>From:</strong> {showFullHashes ? tx.sender : `${tx.sender?.substring(0, 10)}...`}
+              </div>
+              <div style={{ fontSize: '0.8rem' }}>
+                <strong>To:</strong> {showFullHashes ? tx.receiver : `${tx.receiver?.substring(0, 10)}...`}
+              </div>
+            </div>
+            <div style={{ 
+              fontWeight: 'bold',
+              color: '#5b21b6',
+              fontSize: '0.9rem'
+            }}>
+              {tx.amount} coins
+            </div>
+          </div>
+          
+          {selectedTx === tx.hash && (
+            <div style={{ 
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              backgroundColor: 'white',
+              borderRadius: '6px',
+              border: '1px solid #e5e7eb',
+              fontSize: '0.75rem'
+            }}>
+              <div style={{ marginBottom: '0.25rem', wordBreak: 'break-all' }}>
+                <strong>Hash:</strong> {tx.hash}
+              </div>
+              <div>
+                <strong>Time:</strong> {new Date(tx.timestamp).toLocaleString()}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
           </div>
         </div>
       ))}
