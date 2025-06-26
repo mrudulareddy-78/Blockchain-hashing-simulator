@@ -1456,6 +1456,131 @@ function App() {
     <div style={{ marginBottom: '2rem' }}>
       <DifficultyTrendChart />
     </div>
+
+    {/* New Mining Analysis Charts */}
+    <div style={{ 
+      padding: '1.5rem', 
+      backgroundColor: 'white', 
+      borderRadius: '12px',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+      marginBottom: '2rem'
+    }}>
+      <h3 style={{ margin: '0 0 1rem 0', color: '#4a5568' }}>⛏️ Mining Analysis</h3>
+      
+      {/* Mining Time vs Difficulty Level Chart */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: '#6b7280' }}>Mining Time vs Difficulty Level</h4>
+        <div style={{ 
+          height: '300px',
+          padding: '1rem',
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <Line 
+            data={{
+              labels: blockchain.miningTimes.map((_, index) => `Block ${index}`),
+              datasets: [
+                {
+                  label: 'Mining Time (seconds)',
+                  data: blockchain.miningTimes,
+                  borderColor: '#8b5cf6',
+                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                  yAxisID: 'y',
+                },
+                {
+                  label: 'Difficulty Level',
+                  data: blockchain.difficultyLevels,
+                  borderColor: '#f59e0b',
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  yAxisID: 'y1',
+                  type: 'line'
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+              },
+              scales: {
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  title: {
+                    display: true,
+                    text: 'Mining Time (seconds)'
+                  },
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  title: {
+                    display: true,
+                    text: 'Difficulty Level'
+                  },
+                  grid: {
+                    drawOnChartArea: false,
+                  },
+                },
+              }
+            }}
+          />
+        </div>
+      </div>
+      
+      {/* Blockchain Growth Chart */}
+      <div>
+        <h4 style={{ margin: '0 0 1rem 0', color: '#6b7280' }}>Blockchain Growth</h4>
+        <div style={{ 
+          height: '300px',
+          padding: '1rem',
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <Bar 
+            data={{
+              labels: blockchain.chain.map((_, index) => `Block ${index}`),
+              datasets: [{
+                label: 'Transaction Count',
+                data: blockchain.chain.map(block => block.transactions.length),
+                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                borderColor: 'rgba(16, 185, 129, 1)',
+                borderWidth: 1
+              }]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: 'Transaction Count per Block'
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Number of Transactions'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      </div>
+    </div>
     
     <div style={{ 
       padding: '1.5rem', 
