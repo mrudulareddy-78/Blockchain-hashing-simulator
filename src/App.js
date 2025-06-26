@@ -823,19 +823,34 @@ function App() {
     <div style={{ backgroundColor: '#faf8ff', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ 
-            fontFamily: 'Playfair Display, serif', 
-            fontSize: '3rem', 
-            fontWeight: 'bold', 
-            color: '#4a5568',
-            margin: '0 0 0.5rem 0'
-          }}>
-            Blockchain Simulator
-          </h1>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem', margin: 0 }}>
-            Welcome back, {currentUser}! 
-          </p>
-        </div>
+  <h1 style={{ 
+    fontFamily: 'Playfair Display, serif', 
+    fontSize: '3rem', 
+    fontWeight: 'bold', 
+    color: '#4a5568',
+    margin: '0 0 0.5rem 0'
+  }}>
+    Blockchain Simulator
+  </h1>
+  <div>
+    <p style={{ color: '#6b7280', fontSize: '1.1rem', display: 'inline', marginRight: '1rem' }}>
+      Welcome back, {currentUser}! 
+    </p>
+    <button 
+      onClick={handleLogout}
+      style={{
+        padding: '0.25rem 0.75rem',
+        backgroundColor: '#fee2e2',
+        color: '#dc2626',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer'
+      }}
+    >
+      Logout
+    </button>
+  </div>
+</div>
 
         {/* Navigation Menu */}
         <div style={{ 
