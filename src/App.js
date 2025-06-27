@@ -111,23 +111,46 @@ function rightRotate(value, amount) {
 }
 // Simple Blockchain implementation
 class Transaction {
-  constructor(sender, receiver, amount) {
-    this.sender = sender;
-    this.receiver = receiver;
-    this.amount = amount;
-    this.timestamp = Date.now();
+  constructor(sender, receiver, amount, timestamp = Date.now()) {
+    Object.defineProperties(this, {
+      sender: { value: sender, enumerable: true },
+      receiver: { value: receiver, enumerable: true },
+      amount: { value: amount, enumerable: true },
+      timestamp: { value: timestamp, enumerable: true },
+      txHash: { 
+        value: sha256(`${sender}${receiver}${amount}${timestamp}`),
+        enumerable: true 
+      }
+    });
   }
 }
 
 class Block {
-  constructor(timestamp, transactions, previousHash = '') {
-    this.index = 0;
-    this.timestamp = timestamp;
-    this.transactions = transactions;
-    this.previousHash = previousHash;
-    this.nonce = 0;
-    this.hash = this.calculateHash();
-    this.merkleRoot = this.calculateMerkleRoot();
+  constructor(timestamp, transactions = [], previousHash = '') {
+    // First calculate merkleRoot before making properties immutable
+    const merkleRoot = this.calculateMerkleRoot(transactions);
+    const initialHash = this.calculateInitialHash(timestamp, transactions, previousHash, merkleRoot);
+
+    // Now define all properties as immutable
+    Object.defineProperties(this, {
+      index: { value: 0, writable: true }, // Only index can change during mining
+      timestamp: { value: timestamp, enumerable: true },
+      transactions: { 
+        value: Object.freeze([...transactions]), // Deep immutability
+        enumerable: true 
+      },
+      previousHash: { value: previousHash, enumerable: true },
+      nonce: { value: 0, writable: true }, // Only nonce can change during mining
+      hash: { value: initialHash, writable: true }, // Hash will be updated during mining
+      merkleRoot: { value: merkleRoot, enumerable: true },
+      merkleTree: { value: null, writable: true },
+      hashOperations: { value: 0, writable: true }
+    });
+  }
+  calculateInitialHash(timestamp, transactions, previousHash, merkleRoot) {
+    return sha256(
+      `0${previousHash}${timestamp}${JSON.stringify(transactions)}0${merkleRoot}`
+    );
   }
 
   calculateHash() {
@@ -139,31 +162,35 @@ class Block {
     return sha256(hashString);
   }
 
-  calculateMerkleRoot() {
-  if (this.transactions.length === 0) return sha256('');
-  if (this.transactions.length === 1) return sha256(JSON.stringify(this.transactions[0]));
-
-  let hashes = this.transactions.map(tx => sha256(JSON.stringify(tx)));
-  this.merkleTree = { leaves: [...hashes], levels: [] }; // Store leaves
-
-  while (hashes.length > 1) {
-    const newHashes = [];
-    for (let i = 0; i < hashes.length; i += 2) {
-      const left = hashes[i];
-      const right = hashes[i + 1] || hashes[i];
-      const combinedHash = sha256(left + right);
-      newHashes.push(combinedHash);
-      this.merkleTree.levels.push({ left, right, hash: combinedHash }); // Store intermediate
+  calculateMerkleRoot(transactions) {
+    if (!transactions || transactions.length === 0) {
+      return sha256('genesis');
     }
-    hashes = newHashes;
-  }
-  return hashes[0];
-}
+    if (transactions.length === 1) {
+      return sha256(JSON.stringify(transactions[0]));
+    }
 
-  mineBlock(difficulty) {
+    let hashes = transactions.map(tx => sha256(JSON.stringify(tx)));
+    this.merkleTree = { leaves: [...hashes], levels: [] };
+
+    while (hashes.length > 1) {
+      const newHashes = [];
+      for (let i = 0; i < hashes.length; i += 2) {
+        const left = hashes[i];
+        const right = hashes[i + 1] || hashes[i];
+        const combinedHash = sha256(left + right);
+        newHashes.push(combinedHash);
+        this.merkleTree.levels.push({ left, right, hash: combinedHash });
+      }
+      hashes = newHashes;
+    }
+    return hashes[0];
+  }
+
+
+ mineBlock(difficulty) {
     const target = Array(difficulty + 1).join('0');
     const startTime = Date.now();
-    this.nonce = 0;
     this.hashOperations = 0;
     
     while (this.hash.substring(0, difficulty) !== target) {
@@ -171,8 +198,12 @@ class Block {
       this.hashOperations++;
       this.hash = this.calculateHash();
       
-      if (this.nonce % 100000 === 0) {
-        console.log(`Still mining... nonce: ${this.nonce}`);
+      // Update index when mining completes (for block height)
+      if (this.hash.substring(0, difficulty) === target) {
+        Object.defineProperty(this, 'index', { 
+          value: this.index, 
+          writable: false 
+        });
       }
     }
     
@@ -181,10 +212,21 @@ class Block {
       operations: this.hashOperations
     };
   }
+   calculateHash() {
+    return sha256(
+      this.index +
+      this.previousHash +
+      this.timestamp +
+      JSON.stringify(this.transactions) +
+      this.nonce +
+      this.merkleRoot
+    );
+  }
 }
 
 class Blockchain {
   constructor() {
+    // Initialize with proper genesis block
     this.chain = [this.createGenesisBlock()];
     this.difficulty = 2;
     this.pendingTransactions = [];
@@ -195,6 +237,20 @@ class Blockchain {
     this.totalHashOperations = 0;
   }
 
+  createGenesisBlock() {
+    const genesisTx = new Transaction(
+      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000001', 
+      1000000,
+      Date.parse('2023-01-01T00:00:00Z')
+    );
+    
+    return new Block(
+      Date.parse('2023-01-01T00:00:00Z'),
+      [genesisTx],
+      '0'
+    );
+  }
   generateAddresses() {
     const addresses = [];
     for (let i = 0; i < 5; i++) {
@@ -202,13 +258,24 @@ class Blockchain {
     }
     return addresses;
   }
-
-  createGenesisBlock() {
-    const block = new Block(Date.now(), [], '0');
-    block.index = 0;
-    return block;
+attemptTamper(blockIndex) {
+  if (blockIndex >= this.chain.length) return false;
+  
+  const originalChain = [...this.chain];
+  try {
+    // Try to modify a property (will fail)
+    this.chain[blockIndex].timestamp = Date.now();
+    return false; // Should never reach here
+  } catch (error) {
+    // Expected error - show warning
+    this.chain = originalChain; // Restore original chain
+    return {
+      success: false,
+      message: `Failed to tamper with Block ${blockIndex}: ${error.message}`
+    };
   }
-
+}
+  
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
   }
@@ -763,62 +830,7 @@ function App() {
     );
   };
 
-  const DifficultyTrendChart = () => {
-  return (
-    <div style={{ padding: '1rem', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-      <h4 style={{ margin: '0 0 1rem 0', color: '#4a5568' }}>Difficulty vs Mining Time Correlation</h4>
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'end', 
-        gap: '6px', 
-        height: '200px',
-        padding: '1rem',
-        backgroundColor: '#f8fafc',
-        borderRadius: '8px',
-        border: '1px solid #e5e7eb'
-      }}>
-        {blockchain.difficultyLevels.map((diff, index) => (
-          <div key={index} style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            flex: 1,
-            minWidth: '30px'
-          }}>
-            <div style={{
-              width: '100%',
-              backgroundColor: '#f59e42',
-              borderRadius: '4px 4px 0 0',
-              height: `${(diff / Math.max(...blockchain.difficultyLevels, 1)) * 75}px`,
-              minHeight: '3px',
-              marginBottom: '0.5rem',
-              position: 'relative'
-            }}></div>
-            <div style={{
-              width: '100%',
-              backgroundColor: '#8b5cf6',
-              borderRadius: '4px 4px 0 0',
-              height: `${(blockchain.miningTimes[index] / Math.max(...blockchain.miningTimes, 1)) * 75}px`,
-              minHeight: '3px',
-              position: 'relative'
-            }}></div>
-            <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>B{index}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-        <span style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ width: '16px', height: '16px', backgroundColor: '#f59e42', marginRight: '0.5rem' }}></div>
-          Difficulty
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ width: '16px', height: '16px', backgroundColor: '#8b5cf6', marginRight: '0.5rem' }}></div>
-          Mining Time
-        </span>
-      </div>
-    </div>
-  );
-};
+  
 
   const availableAddresses = [...blockchain.addresses, userProfile.publicKey];
   const networkStats = blockchain.getNetworkStats();
@@ -867,11 +879,12 @@ function App() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
             {[
-              { key: 'transactions', label: '💳 Transactions' },
-              { key: 'mining', label: '⛏️ Mining' },
-              { key: 'blockchain', label: '🔗 Blockchain' },
-              { key: 'analysis', label: '📊 Analysis' },
-              { key: 'profile', label: '👤 Profile' }
+               { key: 'transactions', label: '💳 Transactions' },
+  { key: 'mining', label: '⛏️ Mining' },
+  { key: 'blockchain', label: '🔗 Blockchain' },
+  { key: 'security', label: '🔒 Security' }, // New tab
+  { key: 'analysis', label: '📊 Analysis' },
+  { key: 'profile', label: '👤 Profile' }
             ].map(section => (
               <button
                 key={section.key}
@@ -1574,7 +1587,115 @@ function App() {
     </div>
   </div>
 )}
-              
+              {activeSection === 'security' && (
+  <div>
+    <h2 style={{ marginBottom: '2rem' }}>🔒 Security Test</h2>
+    
+    <div style={{
+      padding: '1.5rem',
+      backgroundColor: '#fff3f3',
+      borderRadius: '12px',
+      border: '1px solid #ffd6d6',
+      marginBottom: '2rem'
+    }}>
+      <h3>Tamper Test</h3>
+      <p>Select a block to attempt modification:</p>
+      
+     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem 0', flexWrap: 'wrap' }}>
+  {blockchain.chain.map((block, index) => (
+    <React.Fragment key={index}>
+      <button
+        onClick={() => {
+          const result = blockchain.attemptTamper(index);
+          setStatus({
+            message: result.message || `Block ${index} is immutable!`,
+            severity: result.success ? 'success' : 'error'
+          });
+        }}
+        style={{
+          padding: '0.5rem 1rem',
+          backgroundColor: '#ffebeb',
+          border: '1px solid #ef4444',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center'
+        }}
+      >
+        Block #{index}
+      </button>
+      
+      {/* Add arrow between blocks (except after last block) */}
+      {index < blockchain.chain.length - 1 && (
+        <div style={{
+          width: '20px',
+          height: '1px',
+          backgroundColor: '#8b5cf6',
+          position: 'relative',
+          margin: '0 0.5rem'
+        }}>
+          <div style={{
+            position: 'absolute',
+            right: '-4px',
+            top: '-4px',
+            width: '0',
+            height: '0',
+            borderTop: '5px solid transparent',
+            borderBottom: '5px solid transparent',
+            borderLeft: '8px solid #8b5cf6'
+          }}></div>
+        </div>
+      )}
+    </React.Fragment>
+  ))}
+</div>
+      
+      <div style={{
+        padding: '1rem',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        marginTop: '1rem'
+      }}>
+        <h4>What's happening?</h4>
+        <ul style={{ paddingLeft: '1.5rem' }}>
+          <li>Blocks are immutable after creation</li>
+          <li>Any modification attempt throws an error</li>
+          <li>The blockchain automatically restores itself</li>
+          <li>Hash changes would break chain integrity</li>
+        </ul>
+      </div>
+    </div>
+    
+    {/* Visual demonstration */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '1.5rem',
+      backgroundColor: '#f0fdf4',
+      borderRadius: '12px'
+    }}>
+      <div>
+        <h3>Try This:</h3>
+        <ol style={{ paddingLeft: '1.5rem' }}>
+          <li>Click any block to attempt modification</li>
+          <li>See the error message appear</li>
+          <li>Check that the block remains unchanged</li>
+        </ol>
+      </div>
+      <div style={{
+        padding: '1rem',
+        backgroundColor: '#dcfce7',
+        borderRadius: '8px'
+      }}>
+        <p style={{ fontWeight: 'bold' }}>Expected Result:</p>
+        <p style={{ color: '#ef4444' }}>
+          ⚠️ Error: Cannot assign to read only property...
+        </p>
+      </div>
+    </div>
+  </div>
+)}
               {activeSection === 'analysis' && (
   <div>
     <h2 style={{ margin: '0 0 2rem 0', color: '#4a5568' }}>📊 Blockchain Algorithm Analysis</h2>
@@ -1592,9 +1713,7 @@ function App() {
       />
     </div>
     
-    <div style={{ marginBottom: '2rem' }}>
-      <DifficultyTrendChart />
-    </div>
+    
 
     {/* New Mining Analysis Charts */}
     <div style={{ 
@@ -1673,112 +1792,10 @@ function App() {
         </div>
       </div>
       
-      {/* Blockchain Growth Chart */}
-      <div>
-        <h4 style={{ margin: '0 0 1rem 0', color: '#6b7280' }}>Blockchain Growth</h4>
-        <div style={{ 
-          height: '300px',
-          padding: '1rem',
-          backgroundColor: '#f8fafc',
-          borderRadius: '8px',
-          border: '1px solid #e5e7eb'
-        }}>
-          <Bar 
-            data={{
-              labels: blockchain.chain.map((_, index) => `Block ${index}`),
-              datasets: [{
-                label: 'Transaction Count',
-                data: blockchain.chain.map(block => block.transactions.length),
-                backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                borderColor: 'rgba(16, 185, 129, 1)',
-                borderWidth: 1
-              }]
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  position: 'top',
-                },
-                title: {
-                  display: true,
-                  text: 'Transaction Count per Block'
-                }
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Number of Transactions'
-                  }
-                }
-              }
-            }}
-          />
-        </div>
-      </div>
+      
     </div>
     
-    <div style={{ 
-      padding: '1.5rem', 
-      backgroundColor: 'white', 
-      borderRadius: '12px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-      marginBottom: '2rem'
-    }}>
-      <h3 style={{ margin: '0 0 1rem 0', color: '#4a5568' }}>🔍 Core Algorithms</h3>
-      <div style={{ display: 'grid', gap: '1rem' }}>
-        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#4a5568' }}>SHA-256 Cryptographic Hashing</h4>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Purpose:</strong> Generates fixed-length (256-bit) hashes for blocks and transactions
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Time Complexity:</strong> O(n) where n is input length
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Basic Operations:</strong> 64 rounds of bitwise operations (AND, XOR, rotations) per 512-bit chunk
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Operations Count:</strong> ~2,000 ops per block hash (includes multiple SHA-256 runs)
-          </p>
-        </div>
-        
-        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#4a5568' }}>Merkle Tree Construction</h4>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Purpose:</strong> Efficiently verifies transaction integrity in a block
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Time Complexity:</strong> O(n) where n is number of transactions
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Basic Operations:</strong> Pairwise SHA-256 hashing of transaction hashes
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Operations Count:</strong> n-1 hashes for n transactions
-          </p>
-        </div>
-        
-        <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#4a5568' }}>Proof-of-Work Mining</h4>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Purpose:</strong> Secures the network by making block creation computationally expensive
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Time Complexity:</strong> O(2^d) where d is difficulty (exponential)
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Basic Operations:</strong> Incrementing nonce and recomputing SHA-256 hash
-          </p>
-          <p style={{ margin: '0 0 0.5rem 0', color: '#6b7280' }}>
-            <strong>Operations Count:</strong> Average 16^d hashes needed (hexadecimal search space)
-          </p>
-        </div>
-      </div>
-    </div>
+ 
     
     <div style={{ 
       padding: '1.5rem', 
